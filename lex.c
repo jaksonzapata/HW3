@@ -1,25 +1,34 @@
 /*
-Assignment :
-lex - Lexical Analyzer for PL/0
-Author : Jacob Smith, Jakson Zapata
-Language : C ( only )
-To Compile :
+Assignment:
+HW3 - Parser and Code Generator for PL/0
+Author(s): Jacob Smith, Jakson Zapata
+Language: C (only)
+
+To Compile:
+Scanner:
 gcc -O2 -std=c11 -o lex lex.c
+
+Parser/Code Generator:
+gcc -O2 -std=c11 -o parsercodegen parsercodegen.c
+
 To Execute (on Eustis):
-./lex <input file>
+./lex <input_file.txt>
+./parsercodegen
+
 where:
-<input file> is the path to the PL/0 source program
+<input_file.txt> is the path to the PL/0 source program
+
 Notes:
-- Implement a lexical analyser for the PL/0 language.
-- The program must detect errors such as
-  - numbers longer than five digits
-  - identifiers longer than eleven characters
-  - invalid characters.
-- The output format must exactly match the specification.
-- Tested on Eustis.
-Class : COP 3402 - System Software - Fall 2025
-Instructor : Dr. Jie Lin
-Due Date : Friday, October 3, 2025 at 11:59 PM ET
+- lex.c accepts ONE command-line argument (input PL/0 source file)
+- parsercodegen.c accepts NO command-line arguments
+- Input filename is hard-coded in parsercodegen.c
+- Implements recursive-descent parser for PL/0 grammar
+- Generates PM/0 assembly code (see Appendix A for ISA)
+- All development and testing performed on Eustis
+
+Class: COP3402 - System Software - Fall 2025
+Instructor: Dr. Jie Lin
+Due Date: Friday, October 31, 2025 at 11:59 PM ET
 */
 
 #include <stdio.h>
@@ -156,7 +165,8 @@ void lexicalAnalyzer(FILE *source)
             }
             else
             {
-                ungetc(next, source);
+                if (next != EOF)
+                    ungetc(next, source); // guard
                 addToken("/", slashsym, NULL);
                 continue;
             }
@@ -176,7 +186,8 @@ void lexicalAnalyzer(FILE *source)
                 }
                 else
                 {
-                    ungetc(next, source);
+                    if (next != EOF)
+                        ungetc(next, source); // guard
                 }
             }
             continue;
@@ -197,7 +208,8 @@ void lexicalAnalyzer(FILE *source)
                     buffer[bufferIndex++] = ch;
             }
             buffer[bufferIndex] = '\0';
-            ungetc(ch, source);
+            if (ch != EOF)
+                ungetc(ch, source); // guard
 
             if (bufferIndex > MAX_IDENT_LEN)
                 addToken(buffer, skipsym, "Identifier too long");
@@ -221,7 +233,8 @@ void lexicalAnalyzer(FILE *source)
                     buffer[bufferIndex++] = ch;
             }
             buffer[bufferIndex] = '\0';
-            ungetc(ch, source);
+            if (ch != EOF)
+                ungetc(ch, source); // guard
 
             if (bufferIndex > MAX_NUM_LEN)
                 addToken(buffer, skipsym, "Number too long");
@@ -246,7 +259,8 @@ void lexicalAnalyzer(FILE *source)
                 addToken("<=", leqsym, NULL);
             else
             {
-                ungetc(next, source);
+                if (next != EOF)
+                    ungetc(next, source); // guard
                 addToken("<", lessym, NULL);
             }
         }
@@ -257,7 +271,8 @@ void lexicalAnalyzer(FILE *source)
                 addToken(">=", geqsym, NULL);
             else
             {
-                ungetc(next, source);
+                if (next != EOF)
+                    ungetc(next, source); // guard
                 addToken(">", gtrsym, NULL);
             }
         }
@@ -268,7 +283,8 @@ void lexicalAnalyzer(FILE *source)
                 addToken(":=", becomessym, NULL);
             else
             {
-                ungetc(next, source);
+                if (next != EOF)
+                    ungetc(next, source); // guard
                 char invalidChar[2] = {ch, '\0'};
                 addToken(invalidChar, skipsym, "Invalid symbol");
             }
@@ -450,4 +466,27 @@ void printOutput()
             printf(" ");
     }
     printf("\n");
+
+    /* Also write the numeric token stream to a hard-coded tokens.txt file
+       so parsercodegen can open it without requiring redirection. */
+    FILE *tokf = fopen("tokens.txt", "w");
+    if (tokf != NULL)
+    {
+        for (int i = 0; i < tokenCount; i++)
+        {
+            fprintf(tokf, "%d", tokens[i].type);
+            if ((tokens[i].type == identsym || tokens[i].type == numbersym) && tokens[i].error[0] == '\0')
+            {
+                fprintf(tokf, " %s", tokens[i].lexeme);
+            }
+            if (i < tokenCount - 1)
+                fprintf(tokf, " ");
+        }
+        fprintf(tokf, "\n");
+        fclose(tokf);
+    }
+    else
+    {
+        perror("Error creating tokens.txt");
+    }
 }
